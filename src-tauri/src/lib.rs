@@ -14,7 +14,7 @@ use image::{
 };
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use stack::{FitMode, RawImage, SizeMatchMode, StackError, StackMode, StackOptions, StackResult};
+use stack::{RawImage, StackError, StackMode, StackOptions, StackResult};
 use std::borrow::Cow;
 use std::fs::File;
 use std::io::{BufWriter, Cursor};
