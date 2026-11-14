@@ -104,7 +104,7 @@ All modes operate per-pixel and per-channel (`R`, `G`, `B` computed independentl
 ## How to Run & Build
 
 ### 1. Run Pre-Compiled Portable Executable (Windows)
-If you have compiled `stackshot.exe` (located at `StackShot.exe` in the project root or `src-tauri/target/release/stackshot.exe`), simply double-click **`StackShot.exe`**. It uses the built-in Windows 10/11 WebView2 runtime and requires zero installation.
+If you have compiled `stackshot.exe` (located at `StackShot.exe` in the project root or `src-tauri/target/x86_64-pc-windows-gnu/release/stackshot.exe`), keep `WebView2Loader.dll` (`157 KB`) in the same folder and double-click **`StackShot.exe`**. It uses the built-in Windows 10/11 WebView2 runtime and requires zero installation.
 
 ### 2. Development & Standard Build
 ```bash
