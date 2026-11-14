@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StackShot</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <!-- Custom Dark Title Bar -->
+      <header id="titlebar" class="titlebar" data-tauri-drag-region>
+        <div class="titlebar-brand" data-tauri-drag-region>
+          <svg class="brand-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3L2 8.5L12 14L22 8.5L12 3Z" fill="#d2a679" />
+            <path d="M2 13L12 18.5L22 13" stroke="#a0693a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M2 17.5L12 23L22 17.5" stroke="#7d5230" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span class="brand-title" data-tauri-drag-region>StackShot</span>
+          <span class="brand-tag" data-tauri-drag-region>Image Stack Engine</span>
+        </div>
+
+        <div class="titlebar-shortcuts" data-tauri-drag-region>
+          <span class="shortcut-pill"><kbd>Ctrl+V</kbd> Paste</span>
+          <span class="shortcut-pill"><kbd>Enter</kbd> Stack</span>
+          <span class="shortcut-pill"><kbd>Ctrl+C</kbd> Copy</span>
+          <span class="shortcut-pill"><kbd>Ctrl+S</kbd> Save</span>
+          <span class="shortcut-pill"><kbd>Del</kbd> Remove</span>
+        </div>
+
+        <div class="titlebar-controls">
+          <button id="btn-win-min" class="win-btn" title="Minimize" aria-label="Minimize">
+            <svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="5.5" width="8" height="1.2" fill="currentColor"/></svg>
+          </button>
+          <button id="btn-win-max" class="win-btn" title="Maximize" aria-label="Maximize">
+            <svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+          </button>
+          <button id="btn-win-close" class="win-btn win-btn-close" title="Close" aria-label="Close">
+            <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 2.5L9.5 9.5M9.5 2.5L2.5 9.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Memory Warning Banner (hidden unless 30+ 4K images or high RAM usage) -->
+      <div id="memory-warning-banner" class="memory-banner hidden" role="alert">
+        <div class="memory-banner-text">
+          <strong>High Memory Footprint:</strong>
+          <span id="memory-warning-detail">Estimated peak memory is high.</span>
+        </div>
+        <div class="memory-banner-actions">
+          <button id="btn-downscale-50" class="btn btn-secondary btn-sm">
+            Downscale Inputs 50% to Fit
+          </button>
+          <button id="btn-dismiss-mem-warn" class="btn btn-ghost btn-sm">Dismiss</button>
+        </div>
+      </div>
+
+      <!-- Top Thumbnail Strip -->
+      <section class="thumb-strip-panel" aria-label="Source Images">
+        <div class="thumb-strip-header">
+          <div class="thumb-strip-info">
+            <span class="section-title">Input Stack</span>
+            <span id="image-counter" class="counter-badge">0 images</span>
+            <span id="memory-counter" class="memory-badge">0 MB</span>
+            <span class="reorder-hint">Drag thumbnails to reorder · Click &amp; press Delete to remove</span>
+          </div>
+          <div class="thumb-strip-actions">
+            <button id="btn-paste-image" class="btn btn-secondary btn-sm" title="Paste image from clipboard (Ctrl+V)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+              </svg>
+              Paste
+            </button>
+            <button id="btn-add-images" class="btn btn-secondary btn-sm" title="Browse and add image files">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+              </svg>
+              Add Images
+            </button>
+            <button id="btn-clear-all" class="btn btn-ghost btn-sm" title="Remove all images from stack" disabled>
+              Clear All
+            </button>
+          </div>
+        </div>
+
+        <div id="thumb-strip" class="thumb-strip" role="listbox" aria-label="Loaded images">
+          <div id="thumb-empty-hint" class="thumb-empty-hint">
+            No images loaded yet — press <kbd>Ctrl+V</kbd> to paste a screenshot, drop files anywhere, or click <strong>Add Images</strong>.
+          </div>
+        </div>
+      </section>
+
+      <!-- Main Workspace: Compact Side Panel + Large Interactive Preview -->
+      <main class="workspace">
+        <!-- Left Compact Control Panel -->
+        <aside class="control-panel">
+          <!-- Stack Mode Section -->
+          <div class="panel-group">
+            <div class="group-header">
+              <label class="group-label" for="mode-grid">Stack Mode</label>
+              <span id="active-mode-pill" class="mode-tag">Median</span>
+            </div>
+
+            <div id="mode-grid" class="mode-grid" role="radiogroup" aria-label="Stack Mode">
+              <!-- Populated dynamically with all 11 modes -->
+            </div>
+
+            <p id="mode-description" class="mode-description">
+              Picks the middle value per pixel — ideal for removing moving objects, tourists, traffic, or transient noise.
+            </p>
+
+            <!-- Auto-normalize toggle for low-output modes -->
+            <div id="auto-normalize-row" class="toggle-row hidden">
+              <label class="toggle-label" for="chk-auto-normalize">
+                <span class="toggle-title">Auto-normalize (0–255)</span>
+                <span class="toggle-sub">Stretches low-output statistical values to full contrast</span>
+              </label>
+              <input type="checkbox" id="chk-auto-normalize" class="accent-checkbox" checked />
+            </div>
+          </div>
+
+          <!-- Size & Alignment Section -->
+          <div class="panel-group">
+            <div class="group-header">
+              <span class="group-label">Mismatched Sizes</span>
+            </div>
+
+            <div class="field-row">
+              <label class="field-label" for="sel-size-match">Match size to</label>
+              <select id="sel-size-match" class="select-input">
+                <option value="first">First image (Default)</option>
+                <option value="largest">Largest image</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <label class="field-label" for="sel-fit-mode">Fit mode</label>
+              <select id="sel-fit-mode" class="select-input">
+                <option value="center_crop">Center-crop (Default)</option>
+                <option value="letterbox">Letterbox</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Stack Action & Progress Section -->
+          <div class="panel-group stack-action-group">
+            <button id="btn-stack" class="btn btn-primary btn-stack" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                <polyline points="2 17 12 22 22 17"/>
+                <polyline points="2 12 12 17 22 12"/>
+              </svg>
+              <span id="btn-stack-label">Stack Images (Enter)</span>
+            </button>
+            <div id="min-images-hint" class="min-images-hint">
+              Add at least 2 images to enable stacking.
+            </div>
+
+            <!-- Progress & Cancel Bar -->
+            <div id="progress-container" class="progress-container hidden">
+              <div class="progress-header">
+                <span id="progress-stage" class="progress-stage">Computing stack...</span>
+                <span id="progress-pct" class="progress-pct">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+              </div>
+              <button id="btn-cancel-stack" class="btn btn-ghost btn-sm btn-cancel">
+                Cancel Render (Esc)
+              </button>
+            </div>
+          </div>
+
+          <!-- Result Actions & Export Section -->
+          <div class="panel-group result-group">
+            <div class="group-header">
+              <span class="group-label">Result &amp; Export</span>
+            </div>
+
+            <div class="export-actions">
+              <button id="btn-copy-result" class="btn btn-secondary" disabled title="Copy full-resolution result to clipboard (Ctrl+C)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                Copy Result
+              </button>
+              <button id="btn-save-result" class="btn btn-secondary" disabled title="Save full-resolution result to disk (Ctrl+S)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/>
+                  <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                Save As...
+              </button>
+            </div>
+
+            <div class="field-row">
+              <label class="field-label" for="sel-export-format">Format</label>
+              <select id="sel-export-format" class="select-input">
+                <option value="png">PNG (Lossless)</option>
+                <option value="jpeg">JPEG (Custom Quality)</option>
+                <option value="webp">WebP (Lossless)</option>
+              </select>
+            </div>
+
+            <div id="jpeg-quality-row" class="jpeg-quality-row hidden">
+              <div class="quality-header">
+                <label class="field-label" for="rng-jpeg-quality">JPEG Quality</label>
+                <span id="lbl-jpeg-quality" class="quality-val">92%</span>
+              </div>
+              <input
+                type="range"
+                id="rng-jpeg-quality"
+                class="range-slider"
+                min="1"
+                max="100"
+                value="92"
+              />
+            </div>
+
+            <button id="btn-add-result-to-stack" class="btn btn-ghost btn-full" disabled title="Push rendered output back into the input stack">
+              + Add Result Back to Stack
+            </button>
+          </div>
+        </aside>
+
+        <!-- Large Main Preview Area -->
+        <section id="preview-area" class="preview-area" aria-label="Result Preview">
+          <!-- Empty State Dropzone -->
+          <div id="empty-dropzone" class="empty-dropzone">
+            <div class="dropzone-card">
+              <svg class="dropzone-icon" width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#a0693a" stroke-width="1.6">
+                <rect x="3" y="3" width="18" height="18" rx="3" ry="3"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <h2 class="dropzone-title">Paste screenshots with <kbd>Ctrl+V</kbd> or drop images here</h2>
+              <p class="dropzone-sub">
+                Take screenshots (<kbd>Win+Shift+S</kbd> / <kbd>Cmd+Shift+4</kbd>), paste directly from clipboard, or select multiple photos to stack.
+              </p>
+              <div class="dropzone-buttons">
+                <button id="btn-empty-paste" class="btn btn-primary">
+                  Paste from Clipboard (Ctrl+V)
+                </button>
+                <button id="btn-empty-browse" class="btn btn-secondary">
+                  Browse Files...
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Zoom/Pan Canvas Container -->
+          <div id="viewport-container" class="viewport-container hidden">
+            <div id="viewport-stage" class="viewport-stage checkerboard">
+              <img id="preview-img" class="preview-img" alt="Stacked Output Preview" draggable="false" />
+            </div>
+
+            <!-- Floating Result Stats & Zoom HUD -->
+            <div class="viewport-hud">
+              <div class="hud-stats">
+                <span id="stat-mode" class="hud-badge hud-badge-accent">Median</span>
+                <span id="stat-dimensions" class="hud-stat">0 × 0 px</span>
+                <span class="hud-sep">·</span>
+                <span id="stat-render-time" class="hud-stat">0.0 ms</span>
+              </div>
+
+              <div class="hud-zoom">
+                <button id="btn-zoom-out" class="hud-btn" title="Zoom Out (-)">−</button>
+                <span id="lbl-zoom-level" class="hud-zoom-label" title="Double-click preview to fit">100%</span>
+                <button id="btn-zoom-in" class="hud-btn" title="Zoom In (+)">+</button>
+                <button id="btn-zoom-100" class="hud-btn" title="Actual Pixel Size (1:1)">1:1</button>
+                <button id="btn-zoom-fit" class="hud-btn" title="Fit to Window (Double-click)">Fit</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Drag Overlay -->
+          <div id="drag-overlay" class="drag-overlay hidden">
+            <div class="drag-overlay-box">
+              <span>Drop images to add to stack</span>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Hidden File Input Fallback for Browser Testing -->
+      <input
+        id="file-input-fallback"
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/bmp,image/tiff,image/gif"
+        multiple
+        class="hidden"
+      />
+
+      <!-- Toast Notification Container -->
+      <div id="toast-container" class="toast-container" aria-live="polite"></div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
