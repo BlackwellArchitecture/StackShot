@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src-tauri/icons/icon.png" alt="StackShot Logo" width="128" />
+</p>
+
 # StackShot
 
 **StackShot** is a lightweight, high-performance, dark-themed desktop application built with **Tauri 2** and **Rust** that replicates and extends Adobe Photoshop's *Image Stack* modes without needing Photoshop. Quickly paste screenshots (`Ctrl+V` / `Cmd+V`), drag-and-drop photos, pick a statistical stack mode, and copy or save the rendered full-resolution result in milliseconds.
@@ -149,3 +153,9 @@ codegen-units = 1
 strip = true
 panic = "abort"
 ```
+
+---
+
+## Screenshot
+
+![StackShot Screenshot](assets/screenshot.png)
